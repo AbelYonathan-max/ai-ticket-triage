@@ -73,13 +73,14 @@ safety officers should be consulted in a health setting, because priority can af
 - **Processors and transfers.** Microsoft Azure is the processor. Resources are in UK South, unless
   the subscription only allows other regions and the set-up script picks one of those: check before
   using real data. The database can be in another region than the app when Azure SQL does not accept
-  new servers from the subscription in the app's region (as with free trials in UK South); the
-  deploy then tries UK West first, so data stays in the UK where possible, and the Terraform output
-  `sql_location` shows the database's region. Azure OpenAI, when switched on, is deployed as Global
-  Standard by default, which may process prompts outside the UK while stored data stays in the
-  resource's geography; choose the regional Standard deployment type for UK-only processing where
-  the model is available. Check Microsoft's current data, privacy and abuse monitoring terms for
-  Azure OpenAI before switching it on.
+  new servers from the subscription in the app's region (as with free trials in UK South and UK
+  West). The deploy then tries UK West first and then EEA regions, which UK GDPR treats as adequate,
+  so stored data stays in the UK or the EEA. The Terraform output `sql_location` shows the
+  database's region. Azure OpenAI, when switched on, is deployed as Global Standard by default,
+  which may process prompts outside the UK while stored data stays in the resource's geography;
+  choose the regional Standard deployment type for UK-only processing where the model is available.
+  Check Microsoft's current data, privacy and abuse monitoring terms for Azure OpenAI before
+  switching it on.
 - **Individual rights.** Tickets are found by their ID. Because the stored text is redacted and
   the demo stores no requester identity, most tickets cannot be linked to a person; an organisation
   linking tickets to staff accounts must support access and erasure requests.

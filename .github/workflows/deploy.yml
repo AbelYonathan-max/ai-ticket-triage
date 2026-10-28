@@ -19,6 +19,11 @@ permissions:
   contents: read
   id-token: write
 
+defaults:
+  run:
+    # Naming bash adds -o pipefail, so a failure anywhere in a pipeline fails the step.
+    shell: bash
+
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -115,11 +120,15 @@ jobs:
           exit 1
 
       # Azure SQL does not accept new servers from every subscription type in every region (free
-      # trials in UK South, for example). An existing database stays where it is; a new one goes to the
-      # first region in the list that accepts it.
+      # trials in UK South and UK West, for example). An existing database stays where it is; a new one
+      # goes to the first region in the list that accepts it: the UK first, then regions in the EEA,
+      # which UK GDPR treats as adequate.
       - name: Terraform apply
         env:
-          SQL_REGIONS: ${{ inputs.sql_location }} ${{ vars.SQL_LOCATION }} ${{ vars.AZURE_LOCATION }} ukwest northeurope swedencentral francecentral
+          SQL_REGIONS: >-
+            ${{ inputs.sql_location }} ${{ vars.SQL_LOCATION }} ${{ vars.AZURE_LOCATION }} ukwest
+            northeurope westeurope francecentral germanywestcentral swedencentral norwayeast
+            polandcentral italynorth spaincentral
         run: |
           CURRENT=$(terraform state show -no-color azurerm_mssql_server.main 2>/dev/null \
             | awk -F'"' '/^ *location *=/ { print $2; exit }' || true)
@@ -139,15 +148,17 @@ jobs:
             fi
             echo "::warning::Azure SQL does not accept new servers from this subscription in $region. Trying the next region."
           done
-          echo "::error::No region in the list accepted a new Azure SQL server. Set the SQL_LOCATION repository variable to one that does."
+          echo "::error::No UK or EEA region accepted a new Azure SQL server from this subscription. See docs/runbook.md, 'Database region'."
           exit 1
 
       - name: Read outputs
         id: outputs
         run: |
+          APP_URL=$(terraform output -raw app_url)
+          JOB=$(terraform output -raw migrate_job_name)
           {
-            echo "app_url=$(terraform output -raw app_url)"
-            echo "migrate_job=$(terraform output -raw migrate_job_name)"
+            echo "app_url=$APP_URL"
+            echo "migrate_job=$JOB"
           } >> "$GITHUB_OUTPUT"
 
       - name: Run database migrations

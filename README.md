@@ -184,14 +184,16 @@ You need an Azure subscription where you are Owner, and a copy of this repositor
 
 2. The **Deploy** workflow then runs Terraform, builds and pushes the image, runs the database
    migration and smoke-tests the live app. After that, every push to `main` that passes CI deploys.
+   If Azure SQL does not accept new servers from your subscription in the UK (free trials), the
+   database goes to the nearest EEA region that does ([runbook](docs/runbook.md#database-region)).
 
-3. Sign in as an analyst with the key from Key Vault:
+3. Sign in as an analyst. If the script switched on Entra sign-in (its summary says so), choose
+   **Sign in** and use your Microsoft account: the script made your account an analyst. Otherwise
+   use the key from Key Vault:
 
    ```bash
    az keyvault secret show --vault-name <key_vault_name> -n analyst-api-key --query value -o tsv
    ```
-
-   or with your Microsoft account, if the script could switch on Entra sign-in.
 
 Optional switches, as repository variables: `ENABLE_OPENAI=true` for the Azure OpenAI assistant
 (pay per use, capped by a daily token budget), `ENABLE_BUDGET=true` for a monthly cost budget.

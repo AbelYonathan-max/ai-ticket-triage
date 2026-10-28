@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    # Naming bash adds -o pipefail, so a failure anywhere in a pipeline fails the step.
+    shell: bash
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

@@ -5,6 +5,12 @@ resource "azurerm_container_app_environment" "main" {
   logs_destination           = "log-analytics"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
   tags                       = local.tags
+
+  # Azure gives every new environment a "Consumption" workload profile. Without this, each apply
+  # would try to remove it.
+  lifecycle {
+    ignore_changes = [workload_profile]
+  }
 }
 
 locals {
