@@ -67,22 +67,33 @@ jobs:
           terraform_version: 1.17.0
           terraform_wrapper: false
 
+      # Right after the bootstrap script, Azure can take a few minutes to apply the deploy identity's
+      # new permissions, so the first two steps retry.
       - name: Terraform init
-        run: >-
-          terraform init
-          -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}"
-          -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
-          -backend-config="container_name=tfstate"
-          -backend-config="key=ai-ticket-triage.tfstate"
-          -backend-config="use_oidc=true"
-          -backend-config="use_azuread_auth=true"
+        env:
+          STATE_RG: ${{ vars.TFSTATE_RESOURCE_GROUP }}
+          STATE_ACCOUNT: ${{ vars.TFSTATE_STORAGE_ACCOUNT }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if terraform init -backend-config="resource_group_name=$STATE_RG" \
+              -backend-config="storage_account_name=$STATE_ACCOUNT" -backend-config="container_name=tfstate" \
+              -backend-config="key=ai-ticket-triage.tfstate" -backend-config="use_oidc=true" \
+              -backend-config="use_azuread_auth=true"; then exit 0; fi
+            echo "init failed (attempt $attempt), retrying in 30 seconds"
+            sleep 30
+          done
+          exit 1
 
       # The app needs its image in the registry before it can be created, so the registry comes first.
       - name: Make sure the container registry exists
-        run: >-
-          terraform apply -auto-approve
-          -target=azurerm_container_registry.main
-          -target=azurerm_role_assignment.deployer_push
+        run: |
+          for attempt in 1 2 3 4; do
+            if terraform apply -auto-approve -target=azurerm_container_registry.main \
+              -target=azurerm_role_assignment.deployer_push; then exit 0; fi
+            echo "apply failed (attempt $attempt), retrying in 30 seconds"
+            sleep 30
+          done
+          exit 1
 
       - name: Build and push the image
         run: |
