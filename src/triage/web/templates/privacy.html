@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Privacy notice{% endblock %}
+{% block content %}
+<h1>Privacy notice</h1>
+<p class="lead">This is a demonstration service built as a portfolio project. Please do not enter real personal data or real ticket details.</p>
+
+<h2>What happens to what you type</h2>
+<ol>
+  <li>Before anything else, the service removes personal data it can recognise: names in common positions, email addresses, phone numbers, NHS numbers, National Insurance numbers, payment card numbers, IP addresses, postcodes, staff IDs and passwords. They are replaced with labels such as [EMAIL].</li>
+  <li>Only the redacted text is stored, and only the redacted text is sent to the optional AI assistant. Your original text is never written to the database or to the logs.</li>
+  <li>The redacted ticket and its triage result are kept for {{ settings.retention_days }} days and then deleted automatically. The demo queue of sample tickets is refreshed daily.</li>
+</ol>
+
+<h2>The AI assistant</h2>
+{% if settings.llm_provider == 'azure_openai' %}
+<p>The assistant uses Azure OpenAI, called by this service's own managed identity. Microsoft does not use prompts or answers to train its models, and may keep them for up to 30 days only to detect abuse. Only redacted text is sent. The assistant can only draft text for an analyst to check: it cannot set priorities or take actions.</p>
+{% else %}
+<p>The AI assistant is switched off in this deployment, so no ticket text leaves the service. When it is switched on it uses Azure OpenAI, receives only redacted text, and can only draft text for an analyst to check.</p>
+{% endif %}
+
+<h2>Analysts</h2>
+{% if settings.auth_mode == 'easyauth' %}
+<p>Analysts sign in with Microsoft Entra ID. Their reviews are recorded against their account ID so there is an audit trail of who changed what.</p>
+{% else %}
+<p>Analysts sign in with a key held in Azure Key Vault. Every review and sign-in is written to an audit log.</p>
+{% endif %}
+
+<h2>Cookies</h2>
+<p>The service sets strictly necessary cookies only: one to protect forms against cross-site request forgery and, for analysts, one to keep them signed in. There are no analytics or advertising cookies.</p>
+
+<h2>More detail</h2>
+<p>The data protection impact assessment (DPIA) and the threat model explain the risks and the controls in detail.{% if settings.repo_url %} They are in the <a href="{{ settings.repo_url }}/tree/main/docs">project documentation</a>.{% endif %}</p>
+{% endblock %}

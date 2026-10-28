@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Analyst sign in{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block content %}
+<h1>Analyst sign in</h1>
+<p>Sign in to see submitted tickets and record reviews.</p>
+{% if error %}
+<div class="error-summary" role="alert" aria-labelledby="err-title">
+  <h2 id="err-title">There is a problem</h2>
+  <ul><li><a href="#key">{{ error }}</a></li></ul>
+</div>
+{% endif %}
+<form method="post" action="/login">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="field {% if error %}field-error{% endif %}">
+    <label for="key">Analyst key</label>
+    <span class="hint" id="key-hint">The key is stored in Azure Key Vault as the secret "analyst-api-key".</span>
+    <input type="password" id="key" name="key" autocomplete="current-password" aria-describedby="key-hint" spellcheck="false">
+  </div>
+  <button class="button" type="submit">Sign in</button>
+</form>
+{% endblock %}

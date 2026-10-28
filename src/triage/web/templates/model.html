@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Model{% endblock %}
+{% block content %}
+{% set ts = meta.get('test_summary', {}) %}
+{% set ar = ts.get('auto_route', {}) %}
+<h1>About the model</h1>
+<p class="lead">Version <code>{{ meta.get('version') }}</code>. A linear text classifier with four outputs: category, incident or request, impact and urgency. It was chosen over more complex models because it is fast, cheap to run and every prediction can be explained by the words in the ticket.</p>
+
+<h2>How it was trained and tested</h2>
+<ul>
+  <li><strong>Training data:</strong> {{ meta.get('training', {}).get('synthetic', 'n/a') }} synthetic tickets from a generator with 68 kinds of issue, written to look like real service desk tickets, plus {{ meta.get('training', {}).get('dev', 'n/a') }} hand-written development tickets. No real tickets or personal data were used.</li>
+  <li><strong>Test data:</strong> {{ ts.get('n', 'n/a') }} hand-written tickets, written separately from the generator and used once, at the end, to measure the final model.</li>
+  <li><strong>Review threshold:</strong> tickets where the model is less than {{ meta.get('review_threshold', 0.6)|pct }} confident about the category go to an analyst. The threshold was chosen on the development tickets to keep automatic routing at least 97% accurate.</li>
+</ul>
+
+<h2>Results on the held-out test tickets</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">Measure</th><th scope="col" class="num">Result</th></tr></thead>
+  <tbody>
+    <tr><td>Category accuracy (7 categories)</td><td class="num">{{ ts.get('category_accuracy')|pct }}</td></tr>
+    <tr><td>Category macro F1</td><td class="num">{{ '%.3f'|format(ts.get('category_macro_f1', 0)) }}</td></tr>
+    <tr><td>Incident or request, macro F1</td><td class="num">{{ '%.3f'|format(ts.get('type_macro_f1', 0)) }}</td></tr>
+    <tr><td>Impact, macro F1</td><td class="num">{{ '%.3f'|format(ts.get('impact_macro_f1', 0)) }}</td></tr>
+    <tr><td>Urgency, macro F1</td><td class="num">{{ '%.3f'|format(ts.get('urgency_macro_f1', 0)) }}</td></tr>
+    <tr><td>Priority exactly right (after safety rules)</td><td class="num">{{ ts.get('priority_exact')|pct }}</td></tr>
+    <tr><td>Priority within one level</td><td class="num">{{ ts.get('priority_within_one')|pct }}</td></tr>
+    <tr><td>Under-prioritised (after safety rules)</td><td class="num">{{ ts.get('under_prioritised')|pct }}</td></tr>
+    <tr><td>Tickets routed without review</td><td class="num">{{ ar.get('coverage')|pct }}</td></tr>
+    <tr><td>Accuracy of tickets routed without review</td><td class="num">{{ ar.get('accuracy_routed')|pct }}</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Known limits</h2>
+<ul>
+  <li>Urgency is the hardest output: people describe urgency in many ways. The safety rules and the review step exist because of this.</li>
+  <li>The training tickets are synthetic and in British English. Real tickets from a specific organisation would need a period of analyst review before the threshold is trusted.</li>
+  <li>Name redaction uses patterns (greetings, sign-offs, "my name is") and can miss names written in unusual places. The privacy notice and the DPIA record this risk.</li>
+  <li>Analyst reviews are stored as labelled data so the model can be retrained and re-tested on real tickets.</li>
+</ul>
+{% if settings.repo_url %}<p>The full model card, with the confusion matrix and the threshold curve, is in the <a href="{{ settings.repo_url }}/blob/main/docs/model-card.md">GitHub repository</a>.</p>{% endif %}
+{% endblock %}

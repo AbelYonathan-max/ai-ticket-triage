@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{% if status == 404 %}Page not found{% elif status == 401 %}Sign in needed{% elif status == 403 %}Not allowed{% elif status == 429 %}Too many requests{% else %}There is a problem{% endif %}{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block content %}
+<h1>{% if status == 404 %}Page not found{% elif status == 401 %}Sign in needed{% elif status == 403 %}You cannot do that{% elif status == 429 %}Too many requests{% else %}There is a problem{% endif %}</h1>
+<p>{{ detail }}</p>
+{% if status == 401 %}<p><a href="/login">Sign in as an analyst</a></p>{% endif %}
+<p><a href="/">Go to the start page</a></p>
+{% endblock %}

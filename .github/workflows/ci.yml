@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python checks, tests and model quality gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint and format
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+
+      - name: Type check
+        run: mypy
+
+      - name: Start SQL Server for the Azure SQL tests
+        run: |
+          # A throwaway password made for this run only; the container is gone when the job ends.
+          SA_PASSWORD="Ci$(openssl rand -hex 16)!"
+          echo "::add-mask::$SA_PASSWORD"
+          docker run -d --name mssql -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$SA_PASSWORD" -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+          echo "TEST_MSSQL_URL=mssql+pyodbc://sa:${SA_PASSWORD}@localhost:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes" >> "$GITHUB_ENV"
+
+      - name: Install the Microsoft ODBC driver if the runner lacks it
+        run: |
+          if ! odbcinst -q -d -n "ODBC Driver 18 for SQL Server" >/dev/null 2>&1; then
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            curl -fsSL "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+            sudo apt-get update
+            sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+          fi
+
+      - name: Train the model from the committed data
+        run: make train
+
+      - name: Wait for SQL Server
+        run: |
+          for _ in $(seq 1 30); do
+            python -c "import os, sqlalchemy as sa; sa.create_engine(os.environ['TEST_MSSQL_URL']).connect().close()" 2>/dev/null && exit 0
+            sleep 3
+          done
+          docker logs mssql | tail -20
+          exit 1
+
+      - name: Tests (unit, API, web, Azure SQL dialect, model quality gate)
+        run: python -m pytest --cov --cov-report=term-missing:skip-covered
+
+      - name: Security scans
+        run: |
+          bandit -q -c pyproject.toml -r src
+          pip-audit --skip-editable
+
+      - name: Keep the model card and metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-report
+          path: |
+            docs/model-card.md
+            docs/model-metrics.json
+            docs/img/
+          if-no-files-found: ignore
+
+  terraform:
+    name: Terraform format, validate and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - name: Terraform tests (mocked providers, no Azure account needed)
+        run: terraform test
+
+  shell:
+    name: Shell script checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: shellcheck infra/bootstrap/*.sh
+
+  image:
+    name: Container image builds and starts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ai-ticket-triage:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start the image and check it answers
+        run: |
+          docker run -d --name app -p 8000:8000 \
+            -e TRIAGE_DATABASE_URL=sqlite:////tmp/triage.db -e TRIAGE_AUTO_MIGRATE=true \
+            -e TRIAGE_SEED_DEMO=true -e TRIAGE_LLM_PROVIDER=stub ai-ticket-triage:ci
+          for _ in $(seq 1 30); do curl -fsS http://localhost:8000/readyz && break; sleep 2; done
+          curl -fsS http://localhost:8000/readyz
+          curl -fsS -X POST http://localhost:8000/api/v1/triage -H 'content-type: application/json' \
+            -d '{"subject":"VPN keeps dropping","body":"The VPN disconnects every few minutes when I work from home."}' \
+            | python3 -c "import json, sys; d = json.load(sys.stdin); print(d['priority'], d['category']); assert d['category'] == 'network'"
+          test "$(docker inspect --format '{{.Config.User}}' ai-ticket-triage:ci)" != "" || { echo "image must not run as root"; exit 1; }

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Ticket {{ t.priority }} {{ t.category_label }}{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block content %}
+{% if is_new %}
+<div class="notice ok" role="status">
+  <h2>Ticket triaged</h2>
+  <p>Bookmark this page to come back to it. The link is the only way to find this ticket unless you are an analyst.</p>
+</div>
+{% endif %}
+{% if reviewed %}
+<div class="notice ok" role="status"><p>Review saved. Thank you: reviews become labelled data for the next model version.</p></div>
+{% endif %}
+
+<p class="muted small">Ticket {{ t.id }} · opened {{ t.created_at|london }} · {{ t.channel }}</p>
+<h1>{{ t.redacted_subject }}</h1>
+
+<div class="grid-2">
+  <div>
+    <h2>Triage decision</h2>
+    <dl class="summary">
+      <dt>Priority</dt>
+      <dd><span class="priority p{{ t.priority[1] }}">{{ t.priority }} {{ t.priority_name }}</span>
+        {% if t.major_incident %}<p class="small tight"><strong>Possible major incident.</strong></p>{% endif %}</dd>
+      <dt>Respond by</dt>
+      <dd>{{ t.respond_by|london }} <span class="muted">({{ t.respond_by|due_in }})</span></dd>
+      <dt>Resolve by</dt>
+      <dd>{{ t.resolve_by|london }} <span class="muted">({{ t.resolve_by|due_in }})</span></dd>
+      <dt>Category</dt>
+      <dd>{{ t.category_label }} <span class="muted">({{ t.category_confidence|pct }} confident)</span></dd>
+      <dt>Type</dt>
+      <dd>{{ TICKET_TYPES[t.ticket_type] }} <span class="muted">({{ t.type_confidence|pct }} confident)</span></dd>
+      <dt>Impact</dt>
+      <dd>{{ IMPACT_LABELS[t.impact] }}{% if t.impact != t.model_impact %} <span class="muted">(raised by a safety rule from {{ t.model_impact }})</span>{% endif %}</dd>
+      <dt>Urgency</dt>
+      <dd>{{ URGENCY_LABELS[t.urgency] }}{% if t.urgency != t.model_urgency %} <span class="muted">(raised by a safety rule from {{ t.model_urgency }})</span>{% endif %}</dd>
+      <dt>Route to</dt>
+      <dd>{{ t.resolver_group }}</dd>
+      <dt>Status</dt>
+      <dd>{% if t.status == 'reviewed' %}Reviewed by an analyst{% elif t.needs_review %}<span class="status-review">Waiting for analyst review</span>{% else %}<span class="status-auto">Routed automatically</span>{% endif %}</dd>
+    </dl>
+
+    {% if t.review_reasons %}
+    <div class="notice warn">
+      <h3>Why a person needs to check this</h3>
+      <ul>{% for reason in t.review_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    {% if t.rules_fired %}
+    <h3>Safety rules that fired</h3>
+    <p>{% for r in t.rules_fired %}<span class="pill">{{ r }}</span>{% endfor %}</p>
+    {% endif %}
+
+    <h3>Words behind the predictions</h3>
+    <table>
+      <caption class="visually-hidden">Top words for each prediction</caption>
+      <thead><tr><th scope="col">Prediction</th><th scope="col">Strongest words in the ticket</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Category</th><td>{{ t.why.get('category', [])|join(', ') or 'none' }}</td></tr>
+        <tr><th scope="row">Type</th><td>{{ t.why.get('type', [])|join(', ') or 'none' }}</td></tr>
+        <tr><th scope="row">Impact</th><td>{{ t.why.get('impact', [])|join(', ') or 'none' }}</td></tr>
+        <tr><th scope="row">Urgency</th><td>{{ t.why.get('urgency', [])|join(', ') or 'none' }}</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Ticket text after redaction</h2>
+    {% if t.personal_data_removed %}
+    <p>Removed before triage:
+      {% for kind, n in t.personal_data_removed.items() %}<span class="pill">{{ kind|replace('_', ' ')|lower }}: {{ n }}</span>{% endfor %}
+    </p>
+    {% else %}
+    <p class="muted">No personal data was found.</p>
+    {% endif %}
+    {% if t.special_category_hint %}<p class="notice warn">This ticket may mention health or other special category data.</p>{% endif %}
+    <pre class="ticket-text">{{ t.redacted_body }}</pre>
+  </div>
+
+  <div>
+    <h2>Suggested help articles</h2>
+    {% if t.knowledge_base %}
+      {% for a in t.knowledge_base %}
+      <div class="panel">
+        <h3>{{ a.id }}: {{ a.title }}</h3>
+        <p>{{ a.summary }}</p>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No article matched closely enough.</p>
+    {% endif %}
+
+    <h2>AI assistant</h2>
+    {% if t.assist.status == 'ok' %}
+      {% if t.assist.summary %}<p><strong>Summary:</strong> {{ t.assist.summary }}</p>{% endif %}
+      {% if t.assist.category and t.assist.category != t.category %}<p><strong>Second opinion on category:</strong> {{ t.assist.category|category_label }}</p>{% endif %}
+      {% if t.assist.reply_draft %}
+        <h3>Draft first reply (for an analyst to check and send)</h3>
+        <div class="draft">{{ t.assist.reply_draft }}</div>
+      {% else %}
+        <p class="muted">No reply draft: the guardrails withheld it.</p>
+      {% endif %}
+      {% if t.assist.questions %}
+        <h3>Questions to ask</h3>
+        <ul>{% for q in t.assist.questions %}<li>{{ q }}</li>{% endfor %}</ul>
+      {% endif %}
+    {% elif t.assist.status == 'disabled' %}
+      <p class="muted">The AI assistant is switched off for this ticket. Triage above does not depend on it.</p>
+    {% else %}
+      <p class="muted">The AI assistant did not run ({{ t.assist.status|replace('_', ' ') }}). Triage above does not depend on it.</p>
+    {% endif %}
+    {% if t.flags %}
+      <h3>Notes</h3>
+      <ul class="small">{% for f in t.flags %}<li>{{ f }}</li>{% endfor %}</ul>
+    {% endif %}
+    <p class="muted small">Model {{ t.model_version }} · triaged in {{ t.latency_ms }} ms</p>
+  </div>
+</div>
+
+{% if t.reviews %}
+<h2>Analyst reviews</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">When</th><th scope="col">Category</th><th scope="col">Type</th><th scope="col">Priority</th><th scope="col">Agreed with triage</th><th scope="col">Notes</th></tr></thead>
+  <tbody>
+  {% for r in t.reviews %}
+    <tr><td>{{ r.created_at|london }}</td><td>{{ r.category|category_label }}</td><td>{{ TICKET_TYPES[r.ticket_type] }}</td><td>{{ r.priority }}</td><td>{{ 'Yes' if r.agreed else 'No, corrected' }}</td><td>{{ r.notes or '' }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if who.is_analyst %}
+<h2 id="review">Review this triage</h2>
+<form method="post" action="/tickets/{{ t.id }}/review" class="panel">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="filters">
+    <div class="field">
+      <label for="category">Category</label>
+      <select id="category" name="category">
+        {% for code, c in CATEGORIES.items() %}<option value="{{ code }}" {% if code == t.category %}selected{% endif %}>{{ c.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="ticket_type">Type</label>
+      <select id="ticket_type" name="ticket_type">
+        {% for code, label in TICKET_TYPES.items() %}<option value="{{ code }}" {% if code == t.ticket_type %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="impact">Impact</label>
+      <select id="impact" name="impact">
+        {% for level, label in IMPACT_LABELS.items() %}<option value="{{ level }}" {% if level == t.impact %}selected{% endif %}>{{ level }}: {{ label.split(':')[0] }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="urgency">Urgency</label>
+      <select id="urgency" name="urgency">
+        {% for level, label in URGENCY_LABELS.items() %}<option value="{{ level }}" {% if level == t.urgency %}selected{% endif %}>{{ level }}: {{ label.split(':')[0] }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="field">
+    <label for="notes">Notes (optional)</label>
+    <span class="hint" id="notes-hint">Personal data in notes is redacted before saving.</span>
+    <textarea id="notes" name="notes" rows="3" maxlength="1000" aria-describedby="notes-hint"></textarea>
+  </div>
+  <button class="button" type="submit">Save review</button>
+</form>
+{% endif %}
+{% endblock %}

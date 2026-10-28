@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Queue{% endblock %}
+{% block content %}
+<h1>Ticket queue</h1>
+{% if not who.is_analyst %}
+<div class="notice">
+  <p>You are looking at the demo queue: {{ total }} sample tickets from the hand-written test set, triaged by the model. <a href="/login">Sign in as an analyst</a> to see submitted tickets and review them.</p>
+</div>
+{% endif %}
+
+<ul class="tabs">
+  <li><a href="/queue?view=review" {% if view == 'review' %}aria-current="page"{% endif %}>Needs review</a></li>
+  <li><a href="/queue?view=open" {% if view == 'open' %}aria-current="page"{% endif %}>All open</a></li>
+  <li><a href="/queue?view=all" {% if view == 'all' %}aria-current="page"{% endif %}>Everything</a></li>
+</ul>
+
+<form method="get" action="/queue" class="filters" aria-label="Filter the queue">
+  <input type="hidden" name="view" value="{{ view }}">
+  <div class="field">
+    <label for="f-category">Category</label>
+    <select id="f-category" name="category">
+      <option value="">All categories</option>
+      {% for code, c in CATEGORIES.items() %}<option value="{{ code }}" {% if code == category %}selected{% endif %}>{{ c.label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-priority">Priority</label>
+    <select id="f-priority" name="priority">
+      <option value="">All priorities</option>
+      {% for p in [1, 2, 3, 4] %}<option value="{{ p }}" {% if p == priority %}selected{% endif %}>P{{ p }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="button secondary" type="submit">Apply filters</button>
+</form>
+
+<p class="muted" role="status">{{ total }} ticket{{ '' if total == 1 else 's' }}, highest priority and earliest response time first.</p>
+{% if rows %}
+<div class="table-wrap">
+<table>
+  <caption class="visually-hidden">Tickets</caption>
+  <thead>
+    <tr>
+      <th scope="col">Priority</th>
+      <th scope="col">Subject</th>
+      <th scope="col">Category</th>
+      <th scope="col">Route to</th>
+      <th scope="col">Respond by</th>
+      <th scope="col">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for t in rows %}
+    <tr>
+      <td><span class="priority p{{ t.priority[1] }}">{{ t.priority }}</span></td>
+      <td><a href="/tickets/{{ t.id }}">{{ t.redacted_subject }}</a><br><span class="muted small">{{ TICKET_TYPES[t.ticket_type] }}</span></td>
+      <td>{{ t.category_label }}<br><span class="muted small">{{ t.category_confidence|pct }} confident</span></td>
+      <td>{{ t.resolver_group }}</td>
+      <td>{{ t.respond_by|london }}<br><span class="muted small">{{ t.respond_by|due_in }}</span></td>
+      <td>{% if t.status == 'reviewed' %}Reviewed{% elif t.needs_review %}<span class="status-review">Review</span><br><span class="muted small">{{ t.review_reasons|length }} reason{{ '' if t.review_reasons|length == 1 else 's' }}</span>{% else %}<span class="status-auto">Auto-routed</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% set qs = 'view=' ~ view ~ ('&category=' ~ category if category else '') ~ ('&priority=' ~ priority if priority else '') %}
+  {% if page > 1 %}<a href="/queue?{{ qs }}&page={{ page - 1 }}">Previous page</a>{% endif %}
+  <span>Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a href="/queue?{{ qs }}&page={{ page + 1 }}">Next page</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<p>No tickets match.</p>
+{% endif %}
+{% endblock %}

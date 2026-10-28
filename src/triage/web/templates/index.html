@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Submit a ticket{% endblock %}
+{% block content %}
+<div class="grid-2">
+  <div>
+    <h1>Triage an IT service desk ticket</h1>
+    <p class="lead">Describe an IT problem or request as a member of staff would. The service removes personal data, predicts the category and priority, sets SLA targets, suggests help articles and decides whether a person needs to check it.</p>
+
+    {% if errors %}
+    <div class="error-summary" role="alert" aria-labelledby="error-summary-title" tabindex="-1">
+      <h2 id="error-summary-title">There is a problem</h2>
+      <ul>
+        {% for field, message in errors.items() %}<li><a href="#{{ field }}">{{ message }}</a></li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/submit" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="field {% if errors.subject %}field-error{% endif %}">
+        <label for="subject">Subject</label>
+        <span class="hint" id="subject-hint">A short summary, for example "Can't connect to the VPN"</span>
+        {% if errors.subject %}<span class="error-message" id="subject-error"><span class="visually-hidden">Error:</span> {{ errors.subject }}</span>{% endif %}
+        <input type="text" id="subject" name="subject" maxlength="200" value="{{ form.subject or '' }}"
+               aria-describedby="subject-hint{% if errors.subject %} subject-error{% endif %}" autocomplete="off">
+      </div>
+      <div class="field {% if errors.body %}field-error{% endif %}">
+        <label for="body">Description</label>
+        <span class="hint" id="body-hint">What happened, who is affected and how urgent it is. Use made-up details only.</span>
+        {% if errors.body %}<span class="error-message" id="body-error"><span class="visually-hidden">Error:</span> {{ errors.body }}</span>{% endif %}
+        <textarea id="body" name="body" rows="9" maxlength="{{ settings.max_body_chars }}"
+                  aria-describedby="body-hint{% if errors.body %} body-error{% endif %}">{{ form.body or '' }}</textarea>
+      </div>
+      <button class="button" type="submit">Triage ticket</button>
+    </form>
+  </div>
+
+  <aside aria-labelledby="how-title">
+    <div class="panel">
+      <h2 id="how-title">How it works</h2>
+      <ol class="steps">
+        <li><strong>Redact.</strong> Names, emails, phone, NHS and National Insurance numbers, card numbers, IP addresses and passwords are removed first. Only redacted text is stored or sent to AI.</li>
+        <li><strong>Classify.</strong> A machine learning model predicts the category, incident or request, impact and urgency, and shows the words behind each prediction.</li>
+        <li><strong>Apply safety rules.</strong> Rules for security incidents, data breaches, outages and patient safety can raise the priority but never lower it.</li>
+        <li><strong>Prioritise.</strong> The ITIL impact and urgency matrix gives P1 to P4 and the SLA response and resolution times, counting service desk hours and bank holidays.</li>
+        <li><strong>Assist and check.</strong> An optional Azure OpenAI step drafts a reply from approved help articles. Low confidence, P1 and risky tickets go to an analyst.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>Try one of these</h2>
+      <ul>
+        <li>"Outlook keeps asking for my password since this morning, I can't send anything and I have a deadline at 3pm."</li>
+        <li>"Nobody on the ward can log in to the electronic patient record, we can't see medication charts."</li>
+        <li>"I think I clicked a link in a fake parcel email and typed my password."</li>
+        <li>"Please could I have a second monitor for my desk?"</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="{% block robots %}index, follow{% endblock %}">
+  <title>{% block title %}AI ticket triage{% endblock %} – AI ticket triage</title>
+  <link rel="stylesheet" href="/static/app.css?v={{ APP_VERSION }}">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/">AI ticket triage</a>
+      <nav aria-label="Main">
+        <ul class="nav">
+          {% set here = request.url.path %}
+          <li><a href="/" {% if here == '/' %}aria-current="page"{% endif %}>Submit a ticket</a></li>
+          <li><a href="/queue" {% if here.startswith('/queue') %}aria-current="page"{% endif %}>Queue</a></li>
+          <li><a href="/dashboard" {% if here == '/dashboard' %}aria-current="page"{% endif %}>Dashboard</a></li>
+          <li><a href="/model" {% if here == '/model' %}aria-current="page"{% endif %}>Model</a></li>
+          <li><a href="/privacy" {% if here == '/privacy' %}aria-current="page"{% endif %}>Privacy</a></li>
+        </ul>
+      </nav>
+      <div class="account">
+        {% if who.is_authenticated %}
+          <span>{{ who.name }}{% if who.is_analyst %} (analyst){% endif %}</span>
+          {% if settings.auth_mode != 'none' %}
+          <form method="post" action="/logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="link-button" type="submit">Sign out</button>
+          </form>
+          {% endif %}
+        {% else %}
+          <a href="/login">Analyst sign in</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+  <div class="banner" role="region" aria-label="Demo notice">
+    <div class="wrap"><span class="tag">Demo</span>This is a portfolio project. Do not enter real personal data: tickets are redacted, kept for {{ settings.retention_days }} days, then deleted.</div>
+  </div>
+  <main id="main" tabindex="-1">
+    <div class="wrap">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>Version {{ APP_VERSION }}</span>
+      <a href="/docs">API documentation</a>
+      <a href="/privacy">Privacy notice</a>
+      {% if settings.repo_url %}<a href="{{ settings.repo_url }}">Source code on GitHub</a>{% endif %}
+    </div>
+  </footer>
+</body>
+</html>

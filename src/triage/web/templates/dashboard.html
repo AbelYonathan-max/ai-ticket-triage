@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% macro bar(n, biggest) -%}
+{%- set w = ((n / (biggest or 1)) * 20)|round|int * 5 -%}
+{%- if n > 0 and w == 0 %}{% set w = 5 %}{% endif -%}
+<span class="bar" aria-hidden="true"><span class="w-{{ w }}"></span></span>
+{%- endmacro %}
+<h1>Service desk dashboard</h1>
+<p class="lead">Last {{ stats.days }} days{% if not who.is_analyst %}, demo queue only{% endif %}. Figures come straight from the database.</p>
+
+{% set total = stats.total %}
+<div class="tiles">
+  <div class="tile"><span class="value">{{ total }}</span><p class="label">tickets triaged</p></div>
+  <div class="tile"><span class="value">{{ (stats.auto_routed / total)|pct if total else 'n/a' }}</span><p class="label">routed without review</p></div>
+  <div class="tile"><span class="value">{{ stats.needs_review }}</span><p class="label">sent to an analyst</p></div>
+  <div class="tile"><span class="value">{{ stats.review_agreement|pct }}</span><p class="label">of {{ stats.reviewed }} reviews agreed with triage</p></div>
+  <div class="tile"><span class="value">{{ stats.respond_overdue_open }}</span><p class="label">open tickets past their response time</p></div>
+</div>
+<p class="small muted">The demo queue is reloaded once a day and nobody works it, so its response clocks keep running and many demo tickets show as overdue.</p>
+
+<div class="grid-2">
+  <section aria-labelledby="by-category">
+    <h2 id="by-category">Tickets by category</h2>
+    {% set biggest = (stats.by_category.values()|max) if stats.by_category else 1 %}
+    <ul class="bars">
+      {% for code, c in CATEGORIES.items() %}
+      {% set n = stats.by_category.get(code, 0) %}
+      <li><span>{{ c.label }}</span>{{ bar(n, biggest) }}<span class="count">{{ n }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section aria-labelledby="by-priority">
+    <h2 id="by-priority">Tickets by priority</h2>
+    {% set biggest_p = (stats.by_priority.values()|max) if stats.by_priority else 1 %}
+    <ul class="bars narrow">
+      {% for p in [1, 2, 3, 4] %}
+      {% set n = stats.by_priority.get(p, 0) %}
+      <li><span>P{{ p }}</span>{{ bar(n, biggest_p) }}<span class="count">{{ n }}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="small muted">Incidents: {{ stats.by_type.get('incident', 0) }} · Service requests: {{ stats.by_type.get('request', 0) }}</p>
+  </section>
+</div>
+
+<h2>Model quality on held-out tickets</h2>
+{% set ts = meta.get('test_summary', {}) %}
+<p>Measured once on {{ ts.get('n', 'n/a') }} hand-written tickets that were never used for training or tuning. See the <a href="/model">model page</a> for details.</p>
+<div class="tiles">
+  <div class="tile"><span class="value">{{ ts.get('category_accuracy')|pct }}</span><p class="label">category accuracy</p></div>
+  <div class="tile"><span class="value">{{ ts.get('auto_route', {}).get('coverage')|pct }}</span><p class="label">routed without review</p></div>
+  <div class="tile"><span class="value">{{ ts.get('auto_route', {}).get('accuracy_routed')|pct }}</span><p class="label">of those routed correctly</p></div>
+  <div class="tile"><span class="value">{{ ts.get('priority_within_one')|pct }}</span><p class="label">priority within one level</p></div>
+</div>
+{% endblock %}

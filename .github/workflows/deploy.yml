@@ -1,0 +1,144 @@
+name: Deploy
+
+# Runs after CI passes on main, or by hand. It signs in to Azure with OpenID Connect: GitHub issues a
+# short-lived token for this repository's "production" environment and Azure exchanges it for access
+# as the deploy identity. No Azure password or key is stored in GitHub.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Azure
+    # Skipped until the bootstrap script has been run and the repository variables are set.
+    if: >-
+      vars.AZURE_CLIENT_ID != '' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: ${{ steps.outputs.outputs.app_url }}
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      APP_RG: ${{ vars.APP_RESOURCE_GROUP }}
+      TF_VAR_resource_group_name: ${{ vars.APP_RESOURCE_GROUP }}
+      TF_VAR_enable_budget: ${{ vars.ENABLE_BUDGET || 'false' }}
+      TF_VAR_enable_easy_auth: ${{ vars.ENABLE_EASY_AUTH || 'false' }}
+      TF_VAR_enable_openai: ${{ vars.ENABLE_OPENAI || 'false' }}
+      TF_VAR_analyst_object_ids: ${{ vars.ANALYST_OBJECT_IDS || '[]' }}
+      TF_VAR_repo_url: ${{ github.server_url }}/${{ github.repository }}
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.COMMIT }}
+
+      - name: Sign in to Azure (OIDC, no stored secret)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.0
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: >-
+          terraform init
+          -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}"
+          -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}"
+          -backend-config="container_name=tfstate"
+          -backend-config="key=ai-ticket-triage.tfstate"
+          -backend-config="use_oidc=true"
+          -backend-config="use_azuread_auth=true"
+
+      # The app needs its image in the registry before it can be created, so the registry comes first.
+      - name: Make sure the container registry exists
+        run: >-
+          terraform apply -auto-approve
+          -target=azurerm_container_registry.main
+          -target=azurerm_role_assignment.deployer_push
+
+      - name: Build and push the image
+        run: |
+          REGISTRY=$(az acr list -g "$APP_RG" --query "[0].name" -o tsv)
+          SERVER=$(az acr show -n "$REGISTRY" --query loginServer -o tsv)
+          IMAGE="$SERVER/ai-ticket-triage:$COMMIT"
+          docker build -t "$IMAGE" ../..
+          # A new push permission can take a minute or two to reach the registry.
+          for _ in 1 2 3 4 5 6 7 8; do
+            if az acr login --name "$REGISTRY" && docker push "$IMAGE"; then exit 0; fi
+            echo "push not allowed yet, retrying in 20 seconds"
+            sleep 20
+          done
+          exit 1
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve -var="image_tag=$COMMIT"
+
+      - name: Read outputs
+        id: outputs
+        run: |
+          {
+            echo "app_url=$(terraform output -raw app_url)"
+            echo "migrate_job=$(terraform output -raw migrate_job_name)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run database migrations
+        env:
+          JOB: ${{ steps.outputs.outputs.migrate_job }}
+        run: |
+          az extension add --name containerapp --upgrade --only-show-errors
+          EXECUTION=$(az containerapp job start -n "$JOB" -g "$APP_RG" --query name -o tsv)
+          echo "Started $EXECUTION"
+          for _ in $(seq 1 60); do
+            STATUS=$(az containerapp job execution show -n "$JOB" -g "$APP_RG" --job-execution-name "$EXECUTION" \
+              --query properties.status -o tsv)
+            echo "migration: $STATUS"
+            case "$STATUS" in
+              Succeeded) exit 0 ;;
+              Failed|Stopped|Degraded) echo "See docs/runbook.md, 'Migration job failed'"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "migration did not finish in 15 minutes"
+          exit 1
+
+      - name: Smoke test
+        env:
+          APP_URL: ${{ steps.outputs.outputs.app_url }}
+        run: |
+          # The app scales to zero and the free-offer database may be paused, so the first call can be slow.
+          for _ in $(seq 1 30); do
+            if curl -fsS --max-time 60 "$APP_URL/readyz"; then break; fi
+            sleep 10
+          done
+          curl -fsS --max-time 60 "$APP_URL/readyz"
+          curl -fsS --max-time 60 -X POST "$APP_URL/api/v1/triage" -H 'content-type: application/json' \
+            -d '{"subject":"Smoke test: printer offline","body":"Deploy check. The printer on floor 2 says offline."}' \
+            | python3 -c "import json, sys; d = json.load(sys.stdin); print(d['priority'], d['category'], d['url'])"
+          echo "### Deployed $COMMIT to $APP_URL" >> "$GITHUB_STEP_SUMMARY"

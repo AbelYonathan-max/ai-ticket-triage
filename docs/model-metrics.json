@@ -1,0 +1,408 @@
+{
+  "version": "1.0.0+29d7e4d4cd",
+  "algorithm": "logistic_regression",
+  "review_threshold": 0.6,
+  "target_auto_accuracy": 0.97,
+  "selection_on_dev": {
+    "logistic_regression": {
+      "dev_macro_f1": {
+        "category": 0.9669,
+        "type": 0.9559,
+        "impact": 0.9034,
+        "urgency": 0.7724
+      },
+      "dev_mean_macro_f1": 0.8997
+    },
+    "linear_svm_calibrated": {
+      "dev_macro_f1": {
+        "category": 0.9669,
+        "type": 0.9701,
+        "impact": 0.8977,
+        "urgency": 0.743
+      },
+      "dev_mean_macro_f1": 0.8944
+    },
+    "complement_naive_bayes": {
+      "dev_macro_f1": {
+        "category": 0.9231,
+        "type": 0.9265,
+        "impact": 0.7281,
+        "urgency": 0.67
+      },
+      "dev_mean_macro_f1": 0.8119
+    }
+  },
+  "test": {
+    "n": 189,
+    "heads": {
+      "category": {
+        "accuracy": 0.9365,
+        "macro_f1": 0.9371,
+        "per_class": {
+          "access": {
+            "precision": 0.8387,
+            "recall": 0.963,
+            "f1-score": 0.8966,
+            "support": 27.0
+          },
+          "hardware": {
+            "precision": 1.0,
+            "recall": 0.9259,
+            "f1-score": 0.9615,
+            "support": 27.0
+          },
+          "m365": {
+            "precision": 0.9231,
+            "recall": 0.8889,
+            "f1-score": 0.9057,
+            "support": 27.0
+          },
+          "network": {
+            "precision": 1.0,
+            "recall": 0.963,
+            "f1-score": 0.9811,
+            "support": 27.0
+          },
+          "printing": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 27.0
+          },
+          "security": {
+            "precision": 0.9231,
+            "recall": 0.8889,
+            "f1-score": 0.9057,
+            "support": 27.0
+          },
+          "software": {
+            "precision": 0.8929,
+            "recall": 0.9259,
+            "f1-score": 0.9091,
+            "support": 27.0
+          }
+        },
+        "labels": [
+          "access",
+          "hardware",
+          "m365",
+          "network",
+          "printing",
+          "security",
+          "software"
+        ],
+        "confusion": [
+          [
+            26,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            1,
+            25,
+            0,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            1,
+            0,
+            24,
+            0,
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            1,
+            26,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            27,
+            0,
+            0
+          ],
+          [
+            3,
+            0,
+            0,
+            0,
+            0,
+            24,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            25
+          ]
+        ]
+      },
+      "type": {
+        "accuracy": 0.9683,
+        "macro_f1": 0.9653,
+        "per_class": {
+          "incident": {
+            "precision": 0.9675,
+            "recall": 0.9835,
+            "f1-score": 0.9754,
+            "support": 121.0
+          },
+          "request": {
+            "precision": 0.9697,
+            "recall": 0.9412,
+            "f1-score": 0.9552,
+            "support": 68.0
+          }
+        },
+        "labels": [
+          "incident",
+          "request"
+        ],
+        "confusion": [
+          [
+            119,
+            2
+          ],
+          [
+            4,
+            64
+          ]
+        ]
+      },
+      "impact": {
+        "accuracy": 0.9101,
+        "macro_f1": 0.8202,
+        "per_class": {
+          "1": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1-score": 0.8571,
+            "support": 4.0
+          },
+          "2": {
+            "precision": 0.6957,
+            "recall": 0.6154,
+            "f1-score": 0.6531,
+            "support": 26.0
+          },
+          "3": {
+            "precision": 0.9387,
+            "recall": 0.9623,
+            "f1-score": 0.9503,
+            "support": 159.0
+          }
+        },
+        "labels": [
+          "1",
+          "2",
+          "3"
+        ],
+        "confusion": [
+          [
+            3,
+            1,
+            0
+          ],
+          [
+            0,
+            16,
+            10
+          ],
+          [
+            0,
+            6,
+            153
+          ]
+        ]
+      },
+      "urgency": {
+        "accuracy": 0.7302,
+        "macro_f1": 0.7322,
+        "per_class": {
+          "1": {
+            "precision": 0.6731,
+            "recall": 0.814,
+            "f1-score": 0.7368,
+            "support": 43.0
+          },
+          "2": {
+            "precision": 0.7246,
+            "recall": 0.641,
+            "f1-score": 0.6803,
+            "support": 78.0
+          },
+          "3": {
+            "precision": 0.7794,
+            "recall": 0.7794,
+            "f1-score": 0.7794,
+            "support": 68.0
+          }
+        },
+        "labels": [
+          "1",
+          "2",
+          "3"
+        ],
+        "confusion": [
+          [
+            35,
+            7,
+            1
+          ],
+          [
+            14,
+            50,
+            14
+          ],
+          [
+            3,
+            12,
+            53
+          ]
+        ]
+      }
+    },
+    "priority": {
+      "model_only": {
+        "exact": 0.8201,
+        "within_one": 0.9841,
+        "under_prioritised": 0.0794,
+        "over_prioritised": 0.1005,
+        "p1_recall": 0.75
+      },
+      "with_rules": {
+        "exact": 0.8307,
+        "within_one": 0.9894,
+        "under_prioritised": 0.0529,
+        "over_prioritised": 0.1164,
+        "p1_recall": 0.75
+      }
+    },
+    "auto_route_curve": [
+      {
+        "threshold": 0.3,
+        "coverage": 1.0,
+        "accuracy": 0.9365
+      },
+      {
+        "threshold": 0.35,
+        "coverage": 1.0,
+        "accuracy": 0.9365
+      },
+      {
+        "threshold": 0.4,
+        "coverage": 0.9947,
+        "accuracy": 0.9362
+      },
+      {
+        "threshold": 0.45,
+        "coverage": 0.9894,
+        "accuracy": 0.9358
+      },
+      {
+        "threshold": 0.5,
+        "coverage": 0.9524,
+        "accuracy": 0.95
+      },
+      {
+        "threshold": 0.55,
+        "coverage": 0.9312,
+        "accuracy": 0.9545
+      },
+      {
+        "threshold": 0.6,
+        "coverage": 0.8995,
+        "accuracy": 0.9706
+      },
+      {
+        "threshold": 0.65,
+        "coverage": 0.8624,
+        "accuracy": 0.9693
+      },
+      {
+        "threshold": 0.7,
+        "coverage": 0.8519,
+        "accuracy": 0.9689
+      },
+      {
+        "threshold": 0.75,
+        "coverage": 0.8254,
+        "accuracy": 0.9679
+      },
+      {
+        "threshold": 0.8,
+        "coverage": 0.7619,
+        "accuracy": 0.9792
+      },
+      {
+        "threshold": 0.85,
+        "coverage": 0.709,
+        "accuracy": 0.9851
+      },
+      {
+        "threshold": 0.9,
+        "coverage": 0.6138,
+        "accuracy": 0.9914
+      },
+      {
+        "threshold": 0.95,
+        "coverage": 0.4974,
+        "accuracy": 0.9894
+      }
+    ],
+    "auto_route": {
+      "threshold": 0.6,
+      "coverage": 0.8995,
+      "accuracy_routed": 0.9706,
+      "accuracy_reviewed": 0.6316
+    }
+  },
+  "test_synthetic_only_model": {
+    "heads": {
+      "category": {
+        "macro_f1": 0.9317
+      },
+      "type": {
+        "macro_f1": 0.9653
+      },
+      "impact": {
+        "macro_f1": 0.7622
+      },
+      "urgency": {
+        "macro_f1": 0.7207
+      }
+    },
+    "auto_route": {
+      "threshold": 0.6,
+      "coverage": 0.8836,
+      "accuracy_routed": 0.9641,
+      "accuracy_reviewed": 0.6818
+    }
+  },
+  "majority_baseline_test": {
+    "category": 0.1429,
+    "type": 0.6402,
+    "impact": 0.8413,
+    "urgency": 0.4127
+  }
+}
