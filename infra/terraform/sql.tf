@@ -1,8 +1,9 @@
 # Azure SQL with Microsoft Entra authentication only: there is no SQL login or password anywhere.
+# The region is part of the name, so a server refused in one region never blocks the name in the next.
 resource "azurerm_mssql_server" "main" {
-  name                          = "sql-${local.base}"
+  name                          = "sql-${local.base}-${local.sql_location}"
   resource_group_name           = data.azurerm_resource_group.main.name
-  location                      = local.location
+  location                      = local.sql_location
   version                       = "12.0"
   minimum_tls_version           = "1.2"
   public_network_access_enabled = true
@@ -33,7 +34,7 @@ resource "azapi_resource" "database" {
   type      = "Microsoft.Sql/servers/databases@2025-01-01"
   name      = "triage"
   parent_id = azurerm_mssql_server.main.id
-  location  = local.location
+  location  = azurerm_mssql_server.main.location
   tags      = local.tags
 
   body = {

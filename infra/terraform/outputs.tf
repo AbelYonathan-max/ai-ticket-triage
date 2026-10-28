@@ -36,6 +36,11 @@ output "sql_server_fqdn" {
   value = azurerm_mssql_server.main.fully_qualified_domain_name
 }
 
+output "sql_location" {
+  description = "The database's region. The deploy workflow keeps an existing database there."
+  value       = azurerm_mssql_server.main.location
+}
+
 output "sign_in" {
   value = var.enable_easy_auth ? "Microsoft Entra ID" : "Analyst key from Key Vault"
 }

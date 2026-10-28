@@ -149,6 +149,11 @@ run "defaults_are_cheap_and_locked_down" {
   }
 
   assert {
+    condition     = azurerm_mssql_server.main.location == "uksouth" && azapi_resource.database.location == "uksouth"
+    error_message = "By default the database should be in the app's region."
+  }
+
+  assert {
     condition     = azurerm_mssql_server.main.azuread_administrator[0].object_id == azurerm_user_assigned_identity.migrate.principal_id
     error_message = "Only the migrate identity should be the SQL admin."
   }
@@ -230,6 +235,12 @@ run "every_option_on" {
     enable_easy_auth   = true
     enable_budget      = true
     analyst_object_ids = ["44444444-4444-4444-4444-444444444444"]
+    sql_location       = "ukwest"
+  }
+
+  assert {
+    condition     = azurerm_mssql_server.main.location == "ukwest" && azapi_resource.database.location == "ukwest" && azurerm_container_app_environment.main.location == "uksouth"
+    error_message = "The database should follow sql_location while the app stays in its own region."
   }
 
   assert {

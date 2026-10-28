@@ -12,10 +12,12 @@ resource "random_string" "suffix" {
 
 locals {
   location = coalesce(var.location, data.azurerm_resource_group.main.location)
-  base     = "${var.name_prefix}-${random_string.suffix.result}"
-  compact  = replace(local.base, "-", "")
-  image    = "${azurerm_container_registry.main.login_server}/${var.image_repository}:${var.image_tag}"
-  tags     = merge({ app = "ai-ticket-triage", managed_by = "terraform" }, var.tags)
+  # The database can sit in another region than the app (see var.sql_location).
+  sql_location = coalesce(var.sql_location, local.location)
+  base         = "${var.name_prefix}-${random_string.suffix.result}"
+  compact      = replace(local.base, "-", "")
+  image        = "${azurerm_container_registry.main.login_server}/${var.image_repository}:${var.image_tag}"
+  tags         = merge({ app = "ai-ticket-triage", managed_by = "terraform" }, var.tags)
 }
 
 # Two identities, so the web app cannot change the database schema or grant itself more rights:

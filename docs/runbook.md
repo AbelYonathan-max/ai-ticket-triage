@@ -46,6 +46,15 @@ revert the commit on `main` and let the pipeline deploy it.
 The first request after a quiet period can take 10 to 60 seconds: the app scales from zero, and the
 free-offer database resumes from pause. The app retries the "database is resuming" errors.
 
+## Database region
+
+Azure SQL does not accept new servers from every subscription type in every region (free trials in
+UK South, for example). A deploy then creates the database in the first region that accepts it: the
+`SQL_LOCATION` repository variable, the app's region, UK West, North Europe, Sweden Central, France
+Central. The app is unaffected, apart from a few milliseconds per query. The Terraform output
+`sql_location` shows the database's region, and an existing database never moves, because moving it
+would mean a new server and a copy of the data.
+
 ## Alerts
 
 **More than 5 server errors in 15 minutes** emails the subscription owners. To investigate, in the

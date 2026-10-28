@@ -9,6 +9,12 @@ variable "location" {
   default     = null
 }
 
+variable "sql_location" {
+  description = "Region for the Azure SQL server. Empty or null means the app's region. Azure SQL does not accept new servers from every subscription type in every region, so the deploy workflow can choose another."
+  type        = string
+  default     = null
+}
+
 variable "name_prefix" {
   description = "Short prefix for resource names. A random suffix is added for globally unique names."
   type        = string

@@ -9,6 +9,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      sql_location:
+        description: Region to try first for a new Azure SQL server (an existing database never moves)
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -109,8 +114,33 @@ jobs:
           done
           exit 1
 
+      # Azure SQL does not accept new servers from every subscription type in every region (free
+      # trials in UK South, for example). An existing database stays where it is; a new one goes to the
+      # first region in the list that accepts it.
       - name: Terraform apply
-        run: terraform apply -auto-approve -var="image_tag=$COMMIT"
+        env:
+          SQL_REGIONS: ${{ inputs.sql_location }} ${{ vars.SQL_LOCATION }} ${{ vars.AZURE_LOCATION }} ukwest northeurope swedencentral francecentral
+        run: |
+          CURRENT=$(terraform state show -no-color azurerm_mssql_server.main 2>/dev/null \
+            | awk -F'"' '/^ *location *=/ { print $2; exit }' || true)
+          TRIED=" "
+          for region in ${CURRENT:-$SQL_REGIONS}; do
+            case "$TRIED" in *" $region "*) continue ;; esac
+            TRIED="$TRIED$region "
+            echo "::group::terraform apply with the database in $region"
+            if terraform apply -auto-approve -var="image_tag=$COMMIT" -var="sql_location=$region" 2>&1 | tee apply.log; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            if ! grep -qE "ProvisioningDisabled|restricted from provisioning|not accepting creation|RegionDoesNotAllowProvisioning" apply.log; then
+              grep -A20 "Error:" apply.log || true
+              exit 1
+            fi
+            echo "::warning::Azure SQL does not accept new servers from this subscription in $region. Trying the next region."
+          done
+          echo "::error::No region in the list accepted a new Azure SQL server. Set the SQL_LOCATION repository variable to one that does."
+          exit 1
 
       - name: Read outputs
         id: outputs
