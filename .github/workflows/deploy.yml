@@ -19,11 +19,6 @@ permissions:
   contents: read
   id-token: write
 
-defaults:
-  run:
-    # Naming bash adds -o pipefail, so a failure anywhere in a pipeline fails the step.
-    shell: bash
-
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -57,8 +52,11 @@ jobs:
       TF_VAR_enable_openai: ${{ vars.ENABLE_OPENAI || 'false' }}
       TF_VAR_analyst_object_ids: ${{ vars.ANALYST_OBJECT_IDS || '[]' }}
       TF_VAR_repo_url: ${{ github.server_url }}/${{ github.repository }}
+    # Job defaults replace workflow defaults as a whole, so the shell is named here. Naming bash adds
+    # -o pipefail, which the apply step needs: without it "terraform apply | tee" hides a failure.
     defaults:
       run:
+        shell: bash
         working-directory: infra/terraform
     steps:
       - uses: actions/checkout@v7

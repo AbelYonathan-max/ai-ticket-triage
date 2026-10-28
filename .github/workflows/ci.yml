@@ -9,9 +9,10 @@ on:
 permissions:
   contents: read
 
+# Naming bash adds -o pipefail, so a failure anywhere in a pipeline fails the step. A job with its
+# own defaults must name the shell again, because job defaults replace these as a whole.
 defaults:
   run:
-    # Naming bash adds -o pipefail, so a failure anywhere in a pipeline fails the step.
     shell: bash
 
 concurrency:
@@ -102,6 +103,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
+        shell: bash
         working-directory: infra/terraform
     steps:
       - uses: actions/checkout@v7
