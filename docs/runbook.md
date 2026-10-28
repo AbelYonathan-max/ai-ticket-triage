@@ -49,11 +49,12 @@ free-offer database resumes from pause. The app retries the "database is resumin
 ## Database region
 
 Azure SQL does not accept new servers from every subscription type in every region (free trials in
-UK South and UK West, for example). A deploy then creates the database in the first region that
-accepts it: the deploy's `sql_location` input, the `SQL_LOCATION` repository variable, the app's
-region, UK West, then North Europe, West Europe, France Central, Germany West Central, Sweden
-Central, Norway East, Poland Central, Italy North and Spain Central. All of these are in the UK or
-the EEA. The app is unaffected, apart from a few milliseconds per query. The Terraform output
+most of the UK and western Europe, for example). A deploy then creates the database in the first
+region that accepts it: the deploy's `sql_location` input, the `SQL_LOCATION` repository variable,
+the app's region, UK West, then North Europe, West Europe, France Central, Germany West Central,
+Sweden Central, Norway East, Poland Central, Italy North, Spain Central and Switzerland North. All of
+these are in the UK, the EEA or Switzerland. The deploy log shows why each refused region said no.
+The app is unaffected, apart from a few milliseconds per query. The Terraform output
 `sql_location` shows the database's region, and an existing database never moves, because moving it
 would mean a new server and a copy of the data.
 

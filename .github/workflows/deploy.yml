@@ -118,15 +118,15 @@ jobs:
           exit 1
 
       # Azure SQL does not accept new servers from every subscription type in every region (free
-      # trials in UK South and UK West, for example). An existing database stays where it is; a new one
-      # goes to the first region in the list that accepts it: the UK first, then regions in the EEA,
-      # which UK GDPR treats as adequate.
+      # trials in most of the UK and western Europe, for example). An existing database stays where it
+      # is; a new one goes to the first region in the list that accepts it: the UK first, then the EEA
+      # and Switzerland, which UK GDPR treats as adequate.
       - name: Terraform apply
         env:
           SQL_REGIONS: >-
             ${{ inputs.sql_location }} ${{ vars.SQL_LOCATION }} ${{ vars.AZURE_LOCATION }} ukwest
             northeurope westeurope francecentral germanywestcentral swedencentral norwayeast
-            polandcentral italynorth spaincentral
+            polandcentral italynorth spaincentral switzerlandnorth
         run: |
           CURRENT=$(terraform state show -no-color azurerm_mssql_server.main 2>/dev/null \
             | awk -F'"' '/^ *location *=/ { print $2; exit }' || true)
@@ -134,19 +134,24 @@ jobs:
           for region in ${CURRENT:-$SQL_REGIONS}; do
             case "$TRIED" in *" $region "*) continue ;; esac
             TRIED="$TRIED$region "
+            # For the log: what Azure SQL's capabilities API says about this subscription and region.
+            CAPABILITY=$(az rest --method get --query "join(' ', [status, reason || ''])" -o tsv \
+              --url "https://management.azure.com/subscriptions/$ARM_SUBSCRIPTION_ID/providers/Microsoft.Sql/locations/$region/capabilities?api-version=2021-11-01" \
+              2>/dev/null || true)
+            echo "Azure SQL in $region: ${CAPABILITY:-no answer}"
             echo "::group::terraform apply with the database in $region"
             if terraform apply -auto-approve -var="image_tag=$COMMIT" -var="sql_location=$region" 2>&1 | tee apply.log; then
               echo "::endgroup::"
               exit 0
             fi
             echo "::endgroup::"
-            if ! grep -qE "ProvisioningDisabled|restricted from provisioning|not accepting creation|RegionDoesNotAllowProvisioning" apply.log; then
+            if ! grep -qE "ProvisioningDisabled|restricted from provisioning|not accepting creation|RegionDoesNotAllowProvisioning|RequestDisallowedByAzure|not accepting new customers" apply.log; then
               grep -A20 "Error:" apply.log || true
               exit 1
             fi
             echo "::warning::Azure SQL does not accept new servers from this subscription in $region. Trying the next region."
           done
-          echo "::error::No UK or EEA region accepted a new Azure SQL server from this subscription. See docs/runbook.md, 'Database region'."
+          echo "::error::No region in the list accepted a new Azure SQL server from this subscription. See docs/runbook.md, 'Database region'."
           exit 1
 
       - name: Read outputs
