@@ -36,6 +36,11 @@ output "sql_server_fqdn" {
   value = azurerm_mssql_server.main.fully_qualified_domain_name
 }
 
+output "log_analytics_workspace_id" {
+  description = "Workspace ID for log queries. The deploy workflow prints a failed job's output from here."
+  value       = azurerm_log_analytics_workspace.main.workspace_id
+}
+
 output "sql_location" {
   description = "The database's region. The deploy workflow keeps an existing database there."
   value       = azurerm_mssql_server.main.location

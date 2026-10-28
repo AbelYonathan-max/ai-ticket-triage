@@ -88,6 +88,9 @@ and the **Failures** view in Application Insights. Typical causes:
 
 ## Migration job failed
 
+The deploy runs a failed migration once more after a minute, and prints the job's output from Log
+Analytics each time it fails. To look yourself:
+
 ```bash
 az containerapp job execution list -n $MIGRATE_JOB -g $RG -o table
 ```

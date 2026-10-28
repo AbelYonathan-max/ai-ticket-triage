@@ -159,29 +159,58 @@ jobs:
         run: |
           APP_URL=$(terraform output -raw app_url)
           JOB=$(terraform output -raw migrate_job_name)
+          WORKSPACE=$(terraform output -raw log_analytics_workspace_id)
           {
             echo "app_url=$APP_URL"
             echo "migrate_job=$JOB"
+            echo "log_workspace=$WORKSPACE"
           } >> "$GITHUB_OUTPUT"
 
+      # Right after a deploy changes the database admin, Azure can take a minute to apply it, so a
+      # failed migration runs once more. Each failure prints the job's own output from Log Analytics.
       - name: Run database migrations
         env:
           JOB: ${{ steps.outputs.outputs.migrate_job }}
+          WORKSPACE: ${{ steps.outputs.outputs.log_workspace }}
         run: |
           az extension add --name containerapp --upgrade --only-show-errors
-          EXECUTION=$(az containerapp job start -n "$JOB" -g "$APP_RG" --query name -o tsv)
-          echo "Started $EXECUTION"
-          for _ in $(seq 1 60); do
-            STATUS=$(az containerapp job execution show -n "$JOB" -g "$APP_RG" --job-execution-name "$EXECUTION" \
-              --query properties.status -o tsv)
-            echo "migration: $STATUS"
-            case "$STATUS" in
-              Succeeded) exit 0 ;;
-              Failed|Stopped|Degraded) echo "See docs/runbook.md, 'Migration job failed'"; exit 1 ;;
-            esac
-            sleep 15
+          job_output() {
+            # Console output reaches Log Analytics a few minutes after the job writes it.
+            local query="ContainerAppConsoleLogs_CL | where TimeGenerated > ago(1h) | where * has '$1'
+              | extend line = column_ifexists('Log_s', '') | order by TimeGenerated asc | project TimeGenerated, line"
+            local rows=""
+            for _ in $(seq 1 12); do
+              if rows=$(az rest --method post --resource https://api.loganalytics.io \
+                --url "https://api.loganalytics.io/v1/workspaces/$WORKSPACE/query" \
+                --body "$(jq -cn --arg q "$query" '{query: $q}')" --query "tables[0].rows" -o tsv 2>&1) \
+                && [ -n "$rows" ]; then
+                break
+              fi
+              sleep 20
+            done
+            echo "::group::Output of $1"
+            echo "${rows:-Nothing reached Log Analytics within four minutes.}"
+            echo "::endgroup::"
+          }
+          for attempt in 1 2; do
+            EXECUTION=$(az containerapp job start -n "$JOB" -g "$APP_RG" --query name -o tsv)
+            echo "Started $EXECUTION"
+            STATUS=""
+            for _ in $(seq 1 60); do
+              STATUS=$(az containerapp job execution show -n "$JOB" -g "$APP_RG" --job-execution-name "$EXECUTION" \
+                --query properties.status -o tsv)
+              echo "migration: $STATUS"
+              case "$STATUS" in Succeeded | Failed | Stopped | Degraded) break ;; esac
+              sleep 15
+            done
+            if [ "$STATUS" = Succeeded ]; then exit 0; fi
+            job_output "$EXECUTION"
+            if [ "$attempt" = 1 ]; then
+              echo "Running the migration once more in a minute"
+              sleep 60
+            fi
           done
-          echo "migration did not finish in 15 minutes"
+          echo "::error::The migration job failed twice. Its output is above; see also docs/runbook.md, 'Migration job failed'."
           exit 1
 
       - name: Smoke test

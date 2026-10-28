@@ -154,8 +154,8 @@ run "defaults_are_cheap_and_locked_down" {
   }
 
   assert {
-    condition     = azurerm_mssql_server.main.azuread_administrator[0].object_id == azurerm_user_assigned_identity.migrate.principal_id
-    error_message = "Only the migrate identity should be the SQL admin."
+    condition     = azurerm_mssql_server.main.azuread_administrator[0].object_id == azurerm_user_assigned_identity.migrate.client_id
+    error_message = "Only the migrate identity should be the SQL admin, given by its client ID."
   }
 
   assert {

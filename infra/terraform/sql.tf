@@ -9,9 +9,11 @@ resource "azurerm_mssql_server" "main" {
   public_network_access_enabled = true
   tags                          = local.tags
 
+  # Azure SQL knows an application or managed identity by its client ID, so that is the admin's ID
+  # here; a user or group would be given by object ID.
   azuread_administrator {
     login_username              = azurerm_user_assigned_identity.migrate.name
-    object_id                   = azurerm_user_assigned_identity.migrate.principal_id
+    object_id                   = azurerm_user_assigned_identity.migrate.client_id
     tenant_id                   = data.azurerm_client_config.current.tenant_id
     azuread_authentication_only = true
   }
