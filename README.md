@@ -11,6 +11,11 @@ first reply. Anything uncertain or high-risk goes to a person.
 It runs on Azure Container Apps with Azure SQL, and is deployed by Terraform from GitHub Actions
 with no stored passwords or keys.
 
+**Live demo:** <https://ca-triage-s66jc.proudsea-ea06fe6c.uksouth.azurecontainerapps.io>. Anyone can
+submit a ticket and browse the demo queue of 60 test tickets; the analyst pages need a Microsoft
+sign-in. The app scales to zero and the database pauses when idle, so the first visit after a quiet
+spell can take up to a minute.
+
 ![A triaged ticket: P1 critical, possible major incident, with the reasons, the redacted text and the review form](docs/img/screenshot-result.png)
 
 ## What it does
