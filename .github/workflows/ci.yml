@@ -49,12 +49,16 @@ jobs:
 
       - name: Install the Microsoft ODBC driver if the runner lacks it
         run: |
-          if ! odbcinst -q -d -n "ODBC Driver 18 for SQL Server" >/dev/null 2>&1; then
-            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
-            curl -fsSL "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list" | sudo tee /etc/apt/sources.list.d/mssql-release.list
-            sudo apt-get update
-            sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+          if dpkg -s msodbcsql18 >/dev/null 2>&1; then exit 0; fi
+          sudo apt-get update -q
+          if ! apt-cache show msodbcsql18 >/dev/null 2>&1; then
+            curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+              | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+            curl -fsSL "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list" \
+              | sudo tee /etc/apt/sources.list.d/mssql-release.list
+            sudo apt-get update -q
           fi
+          sudo ACCEPT_EULA=Y apt-get install -y -q msodbcsql18 unixodbc
 
       - name: Train the model from the committed data
         run: make train
