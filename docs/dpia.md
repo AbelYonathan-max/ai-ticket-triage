@@ -70,11 +70,13 @@ safety officers should be consulted in a health setting, because priority can af
 - **Accuracy.** The model card publishes the test results and known weaknesses. Analyst reviews are
   stored so disagreements can be measured and the model retrained.
 - **Retention.** 30 days, enforced by a daily job (`TRIAGE_RETENTION_DAYS`).
-- **Processors and transfers.** Microsoft Azure is the processor. Resources are in UK South. Azure
-  OpenAI, when switched on, is deployed as Global Standard by default, which may process prompts
-  outside the UK while stored data stays in the resource's geography; choose the regional Standard
-  deployment type for UK-only processing where the model is available. Check Microsoft's current
-  data, privacy and abuse monitoring terms for Azure OpenAI before switching it on.
+- **Processors and transfers.** Microsoft Azure is the processor. Resources are in UK South, unless
+  the subscription only allows other regions and the set-up script picks one of those: check before
+  using real data. Azure OpenAI, when switched on, is deployed as Global Standard by default, which
+  may process prompts outside the UK while stored data stays in the resource's geography; choose the
+  regional Standard deployment type for UK-only processing where the model is available. Check
+  Microsoft's current data, privacy and abuse monitoring terms for Azure OpenAI before switching it
+  on.
 - **Individual rights.** Tickets are found by their ID. Because the stored text is redacted and
   the demo stores no requester identity, most tickets cannot be linked to a person; an organisation
   linking tickets to staff accounts must support access and erasure requests.

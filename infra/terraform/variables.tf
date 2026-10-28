@@ -4,7 +4,7 @@ variable "resource_group_name" {
 }
 
 variable "location" {
-  description = "Azure region. Defaults to the resource group's region (UK South from the bootstrap script)."
+  description = "Azure region. Empty or null means the resource group's region. The bootstrap script sets one the subscription allows."
   type        = string
   default     = null
 }

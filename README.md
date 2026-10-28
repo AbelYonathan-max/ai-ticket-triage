@@ -175,9 +175,11 @@ You need an Azure subscription where you are Owner, and a copy of this repositor
    git clone https://github.com/OWNER/REPO.git && bash REPO/infra/bootstrap/bootstrap.sh OWNER/REPO
    ```
 
-   The script creates the resource groups, the Terraform state storage and the deploy identity,
-   then asks you to sign in to GitHub once so it can set the repository variables and start the
-   first deploy. It does not store any secret in GitHub. Read
+   The script first asks you to sign in to GitHub with a one-time code, so it can read the
+   repository's IDs and set its variables. Then it creates the resource groups, the Terraform state
+   storage and the deploy identity, and starts the first deploy. It stores no secret in GitHub. It
+   uses UK South unless your subscription only allows certain regions (Azure for Students does), in
+   which case it picks one of those; put `LOCATION=<region>` in front of the command to choose. Read
    [what it does](infra/bootstrap/bootstrap.sh) first.
 
 2. The **Deploy** workflow then runs Terraform, builds and pushes the image, runs the database

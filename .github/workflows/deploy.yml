@@ -41,6 +41,7 @@ jobs:
       COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
       APP_RG: ${{ vars.APP_RESOURCE_GROUP }}
       TF_VAR_resource_group_name: ${{ vars.APP_RESOURCE_GROUP }}
+      TF_VAR_location: ${{ vars.AZURE_LOCATION }}
       TF_VAR_enable_budget: ${{ vars.ENABLE_BUDGET || 'false' }}
       TF_VAR_enable_easy_auth: ${{ vars.ENABLE_EASY_AUTH || 'false' }}
       TF_VAR_enable_openai: ${{ vars.ENABLE_OPENAI || 'false' }}
