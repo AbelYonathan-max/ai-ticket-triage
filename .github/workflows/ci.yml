@@ -128,11 +128,21 @@ jobs:
       - run: shellcheck infra/bootstrap/*.sh
 
   image:
-    name: Container image builds and starts
+    name: Container image builds and runs on SQLite and SQL Server
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+
+      # Started before the build so it has booted by the time the image is ready.
+      - name: Start SQL Server
+        run: |
+          # A throwaway password made for this run only; the container is gone when the job ends.
+          SA_PASSWORD="Ci$(openssl rand -hex 16)!"
+          echo "::add-mask::$SA_PASSWORD"
+          docker run -d --name mssql -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$SA_PASSWORD" -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+          echo "MSSQL_SA_PASSWORD=$SA_PASSWORD" >> "$GITHUB_ENV"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -156,3 +166,40 @@ jobs:
             -d '{"subject":"VPN keeps dropping","body":"The VPN disconnects every few minutes when I work from home."}' \
             | python3 -c "import json, sys; d = json.load(sys.stdin); print(d['priority'], d['category']); assert d['category'] == 'network'"
           test "$(docker inspect --format '{{.Config.User}}' ai-ticket-triage:ci)" != "" || { echo "image must not run as root"; exit 1; }
+
+      # On Azure the migration job and the app reach the database through the Microsoft ODBC driver
+      # inside the image, so the same job and app run here against SQL Server through that driver.
+      - name: Run the migration job and the app from the image on SQL Server
+        run: |
+          ODBC="Driver={ODBC Driver 18 for SQL Server};Server=tcp:127.0.0.1,1433;UID=sa;PWD={${MSSQL_SA_PASSWORD}};TrustServerCertificate=yes"
+          docker run --rm -i --network host ai-ticket-triage:ci python - "$ODBC" <<'EOF'
+          import sys
+          import time
+
+          import pyodbc
+
+          last = None
+          for _ in range(40):
+              try:
+                  conn = pyodbc.connect(sys.argv[1], timeout=3)
+                  print(conn.execute("SELECT @@VERSION").fetchone()[0].splitlines()[0])
+                  conn.close()
+                  break
+              except pyodbc.Error as exc:
+                  if "Can't open lib" in str(exc):
+                      sys.exit(f"The image's ODBC driver does not load: {exc}")
+                  last = exc
+                  time.sleep(3)
+          else:
+              sys.exit(f"SQL Server did not answer: {last}")
+          EOF
+          URL="mssql+pyodbc://sa:${MSSQL_SA_PASSWORD}@127.0.0.1:1433/master?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+          docker run --rm --network host -e TRIAGE_DATABASE_URL="$URL" ai-ticket-triage:ci \
+            python -m triage.jobs.run migrate
+          docker run -d --name app-mssql --network host -e PORT=8001 -e TRIAGE_DATABASE_URL="$URL" \
+            -e TRIAGE_LLM_PROVIDER=stub ai-ticket-triage:ci
+          for _ in $(seq 1 30); do curl -fsS http://localhost:8001/readyz && break; sleep 2; done
+          curl -fsS http://localhost:8001/readyz || { docker logs app-mssql | tail -30; exit 1; }
+          curl -fsS -X POST http://localhost:8001/api/v1/triage -H 'content-type: application/json' \
+            -d '{"subject":"VPN keeps dropping","body":"The VPN disconnects every few minutes when I work from home."}' \
+            | python3 -c "import json, sys; d = json.load(sys.stdin); print(d['priority'], d['category']); assert d['category'] == 'network'"

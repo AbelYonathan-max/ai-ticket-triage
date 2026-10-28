@@ -106,7 +106,9 @@ ContainerAppConsoleLogs_CL
 
 Common causes: a new role assignment not yet active (re-run the job after two minutes:
 `az containerapp job start -n $MIGRATE_JOB -g $RG`), or an error in a migration script (fix it and
-push).
+push). "Can't open lib ... msodbcsql ... file not found" means the image's ODBC driver is missing a
+library it links against, not that the driver file is gone. The image build now fails on that, and
+CI runs the migration job from the image against SQL Server, so it should not reach a deploy again.
 
 ## The analyst key
 

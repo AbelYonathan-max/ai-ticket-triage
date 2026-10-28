@@ -24,16 +24,22 @@ RUN python -m triage.data.synthetic --out data/synthetic/train.csv \
 # ---------------------------------------------------------------- runtime
 FROM base AS runtime
 ARG MSODBC_VERSION=18
+# The driver links libgssapi_krb5.so.2, but its package does not list libgssapi-krb5-2, so it is
+# named here. Otherwise it arrives only with curl, and removing curl afterwards takes it away. The
+# last lines fail the build if the registered driver file, or any library it needs, is missing.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl gnupg unixodbc \
  && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
  && echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
       > /etc/apt/sources.list.d/mssql-release.list \
  && apt-get update \
- && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql${MSODBC_VERSION} \
+ && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql${MSODBC_VERSION} libgssapi-krb5-2 \
  && apt-get purge -y curl gnupg \
  && apt-get autoremove -y \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && driver="$(odbcinst -q -d -n "ODBC Driver ${MSODBC_VERSION} for SQL Server" | sed -n 's/^Driver=//p')" \
+ && test -f "$driver" \
+ && if ldd "$driver" | grep "not found"; then exit 1; fi
 
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin app
 WORKDIR /app
