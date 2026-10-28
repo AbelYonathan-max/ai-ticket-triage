@@ -1,5 +1,38 @@
 # Model card
 
+## Model
+
+Four classifiers on shared features, predicting a ticket's category (7 classes), type (incident or
+service request), impact (1 to 3) and urgency (1 to 3). Features are TF-IDF word 1-2 grams and
+character 3-5 grams of the redacted subject (counted twice) and body. Each classifier is a
+logistic regression. The version string includes a hash of the training data, so the same data
+always gives the same version. Training code: [`src/triage/ml/train.py`](../src/triage/ml/train.py).
+
+## Intended use
+
+First-line triage of IT service desk tickets written in English, in a UK public sector style
+organisation: routing to a resolver group and a starting priority, with a person reviewing anything
+uncertain or high-risk.
+
+Not intended for: deciding anything about a person, triaging clinical (non-IT) requests, or running
+without the review queue and the safety rules.
+
+## Data
+
+- **Training:** 8,400 synthetic tickets from a template generator
+  ([`data/synthetic.py`](../src/triage/data/synthetic.py)) with UK public sector systems and
+  vocabulary, typos, greetings and sign-offs, and personal data that the redaction step removes, so
+  the model learns from text that looks like what it will see in production.
+- **Dev:** 92 hand-written tickets, used to choose the algorithm and the review threshold, and added
+  to the final training set.
+- **Test:** 189 hand-written tickets, written separately following the
+  [labelling guide](labelling-guide.md) and used once for the figures below. They are balanced
+  across categories (27 each), so the figures weigh every category equally.
+
+None of the tickets come from a real organisation.
+
+## Results
+
 <!-- BEGIN GENERATED METRICS -->
 Model `1.0.0+29d7e4d4cd` (logistic regression), evaluated once on **189 held-out tickets** that were written separately from the training data and never used for training or tuning.
 
@@ -40,3 +73,29 @@ Model selection on the dev set (macro F1, trained on synthetic data only):
 
 ![Review threshold](img/review-threshold.png)
 <!-- END GENERATED METRICS -->
+
+## Limitations
+
+- **Urgency is the weakest output** (73% accuracy). How alarming a ticket sounds varies a lot from
+  writer to writer. The safety rules and the review of P1 tickets exist because of this.
+- **Few critical tickets.** The test set has 4 P1 tickets, so the P1 recall figure is indicative.
+- **Vocabulary.** The model only knows words it has seen. New system names and local slang reduce
+  confidence, which sends those tickets to review rather than misrouting them silently.
+- **Synthetic data.** Real tickets are messier. Before relying on the review threshold, measure it
+  on a sample of real, redacted tickets, using the analyst review figures on the dashboard.
+- **English only.**
+
+## Fairness and safety
+
+The model sees only redacted ticket text and predicts properties of the IT problem, not of the
+person. Writing style still matters: a terse or non-native writer may get lower urgency than a
+fluent, alarmed one for the same problem. Mitigations: the safety rules key on the facts in the
+ticket (who is affected, whether work has stopped), every P1 and low-confidence ticket is reviewed,
+and analysts can change any triage. Review disagreements should be checked for patterns.
+
+## Updating
+
+Run `make train` after changing the generator or the hand-written tickets. The CI quality gate
+([`tests/test_model_quality.py`](../tests/test_model_quality.py)) fails the build if test results
+drop below agreed floors, so a model change cannot reach production unnoticed.
+
