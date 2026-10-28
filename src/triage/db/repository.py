@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, delete, func, select
+from sqlalchemy import ColumnElement, delete, false, func, select, true
 from sqlalchemy.orm import Session, selectinload
 
 from triage.db.models import AuditEvent, Review, Ticket, TriageRecord
@@ -97,11 +97,13 @@ class Repository:
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[Ticket], int]:
+        # Booleans are compared with ==. SQL Server has no IS TRUE: .is_(True) becomes "IS 1", which
+        # it rejects, though SQLite accepts it.
         conditions: list[ColumnElement[bool]] = []
         if seed_only:
-            conditions.append(Ticket.is_seed.is_(True))
+            conditions.append(Ticket.is_seed == true())
         if needs_review is not None:
-            conditions.append(TriageRecord.needs_review.is_(needs_review))
+            conditions.append(TriageRecord.needs_review == needs_review)
         if category:
             conditions.append(TriageRecord.category == category)
         if priority:
@@ -156,7 +158,7 @@ class Repository:
         since = datetime.now(UTC) - timedelta(days=days)
         base = select(Ticket.id).join(Ticket.result).where(Ticket.created_at >= since)
         if seed_only:
-            base = base.where(Ticket.is_seed.is_(True))
+            base = base.where(Ticket.is_seed == true())
         ids = base.subquery()
 
         def grouped(column: Any) -> dict[Any, int]:
@@ -204,7 +206,7 @@ class Repository:
         """Delete submitted tickets (not the synthetic demo set) created before the cutoff."""
         ids = list(
             self.session.execute(
-                select(Ticket.id).where(Ticket.created_at < cutoff, Ticket.is_seed.is_(False))
+                select(Ticket.id).where(Ticket.created_at < cutoff, Ticket.is_seed == false())
             ).scalars()
         )
         if not ids:
@@ -218,5 +220,5 @@ class Repository:
 
     def count_seed(self) -> int:
         return int(
-            self.session.execute(select(func.count(Ticket.id)).where(Ticket.is_seed.is_(True))).scalar_one()
+            self.session.execute(select(func.count(Ticket.id)).where(Ticket.is_seed == true())).scalar_one()
         )

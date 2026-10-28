@@ -12,7 +12,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 
 from triage.app_factory import build_service
 from triage.db.migrate import grant_app_identity, upgrade
@@ -53,7 +53,7 @@ def retention(demo_path: Path) -> None:
         deleted = repo.purge_older_than(cutoff)
         repo.audit("system", "retention.purged", count=deleted, retention_days=settings.retention_days)
         log.info("retention_purged", extra={"count": deleted})
-        newest = session.execute(select(func.max(Ticket.created_at)).where(Ticket.is_seed.is_(True))).scalar()
+        newest = session.execute(select(func.max(Ticket.created_at)).where(Ticket.is_seed == true())).scalar()
         stale = newest is None or newest.replace(tzinfo=newest.tzinfo or UTC) < datetime.now(UTC) - timedelta(
             hours=20
         )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 
 from tests.conftest import HANDWRITTEN, make_settings
 from triage.db.migrate import upgrade
@@ -28,7 +28,7 @@ def test_seed_and_clear_demo_queue(service: TriageService) -> None:
     with session_scope(sessions) as s:
         assert seed_demo(service, s, HANDWRITTEN, now=NOW) == 60
     with session_scope(sessions) as s:
-        times = list(s.execute(select(Ticket.created_at).where(Ticket.is_seed.is_(True))).scalars())
+        times = list(s.execute(select(Ticket.created_at).where(Ticket.is_seed == true())).scalars())
         assert len(times) == 60 and max(times) < NOW
         assert all(t.astimezone(UTC).weekday() < 5 for t in times)
         assert Repository(s).count_seed() == 60

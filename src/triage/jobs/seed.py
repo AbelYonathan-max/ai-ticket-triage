@@ -13,7 +13,7 @@ import random
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, true
 from sqlalchemy.orm import Session
 
 from triage.db.models import Review, Ticket, TriageRecord
@@ -75,7 +75,7 @@ def seed_demo(
 
 
 def clear_demo(session: Session) -> int:
-    ids = list(session.execute(select(Ticket.id).where(Ticket.is_seed.is_(True))).scalars())
+    ids = list(session.execute(select(Ticket.id).where(Ticket.is_seed == true())).scalars())
     if ids:
         session.execute(delete(Review).where(Review.ticket_id.in_(ids)))
         session.execute(delete(TriageRecord).where(TriageRecord.ticket_id.in_(ids)))
