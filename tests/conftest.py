@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
 import pytest
@@ -25,8 +25,23 @@ from triage.settings import Settings
 ROOT = Path(__file__).resolve().parents[1]
 HANDWRITTEN = ROOT / "data" / "test" / "handwritten.jsonl"
 
-# Tuesday 3 November 2026, 10:00 London time (GMT): a normal working morning.
-WORKDAY_MORNING = datetime(2026, 11, 3, 10, 0, tzinfo=UTC)
+
+def last_working_morning() -> datetime:
+    """10:00 UTC on the most recent working day before today (not a weekend or a bank holiday).
+
+    Tickets made in the tests are stamped with this time. It has to stay recent: the dashboard counts
+    the last 30 days and the retention job deletes older tickets, so a fixed date made those tests fail
+    a month after it was written.
+    """
+    calendar = load_policy().calendar
+    day = datetime.now(UTC).date() - timedelta(days=1)
+    while not calendar.is_business_day(day):
+        day -= timedelta(days=1)
+    return datetime.combine(day, time(10, 0), tzinfo=UTC)
+
+
+# A normal working morning (10:00 UTC is inside service desk hours in both GMT and BST).
+WORKDAY_MORNING = last_working_morning()
 
 
 @pytest.fixture(scope="session")

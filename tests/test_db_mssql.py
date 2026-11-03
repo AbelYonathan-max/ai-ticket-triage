@@ -128,5 +128,5 @@ def test_jobs_queue_dashboard_and_api_on_sql_server(
     assert reviewed.status_code == 200, reviewed.text
 
     with session_scope(sessions) as s:
-        # The test service's clock is a fixed morning next week, so the cutoff is a year ahead.
+        # The test service's clock is a recent working morning; a cutoff a year ahead catches the ticket.
         assert Repository(s).purge_older_than(datetime.now(UTC) + timedelta(days=365)) == 1
