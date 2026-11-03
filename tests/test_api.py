@@ -72,6 +72,10 @@ def test_list_requires_analyst_and_filters(make_client: Any) -> None:
     page = client.get("/api/v1/tickets?limit=5", headers=analyst).json()
     assert page["total"] >= 1 and len(page["items"]) <= 5
     assert client.get("/api/v1/tickets?priority=9", headers=analyst).status_code == 422
+    network = client.get("/api/v1/tickets?category=network", headers=analyst).json()
+    assert all(t["category"] == "network" for t in network["items"])
+    # A misspelt category is an error, not an empty list that looks like "no tickets".
+    assert client.get("/api/v1/tickets?category=netwrok", headers=analyst).status_code == 422
 
 
 def test_easy_auth_headers_ignored_unless_trusted(make_client: Any) -> None:
