@@ -9,7 +9,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from triage.api.app import Runtime, principal, repository, require_analyst, runtime
-from triage.api.schemas import ReviewIn, TicketIn, TicketOut, TicketPage
+from triage.api.schemas import CategoryCode, ReviewIn, TicketIn, TicketOut, TicketPage
 from triage.api.views import ticket_out
 from triage.db.repository import Repository, ReviewInput
 from triage.privacy.redact import redact
@@ -76,7 +76,7 @@ def get_ticket(
 def list_tickets(
     request: Request,
     needs_review: bool | None = None,
-    category: str | None = None,
+    category: CategoryCode | None = None,
     priority: int | None = Query(default=None, ge=1, le=4),
     ticket_status: Literal["open", "reviewed"] | None = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
