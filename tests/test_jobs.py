@@ -73,9 +73,11 @@ def test_retention_job_purges_old_tickets_and_refreshes_a_stale_demo_queue(
     with session_scope(sessions) as s:
         submitted = s.execute(select(Ticket.subject).where(Ticket.is_seed == false())).scalars().all()
         assert submitted == ["New"]
-        newest_demo = s.execute(select(func.max(Ticket.created_at)).where(Ticket.is_seed == true())).scalar()
         assert Repository(s).count_seed() == 60
-        assert newest_demo is not None and newest_demo.replace(tzinfo=UTC) > now - timedelta(days=1)
+        # The queue was seeded twice: once above, once by the job. Checking the open times instead
+        # fails at weekends and after bank holidays, when the newest working day is over a day ago.
+        seeded = s.execute(select(AuditEvent).where(AuditEvent.action == "demo.seeded")).scalars().all()
+        assert len(seeded) == 2
         purged = s.execute(select(AuditEvent).where(AuditEvent.action == "retention.purged")).scalar_one()
         assert purged.details == {"count": 1, "retention_days": 30}
     engine.dispose()
